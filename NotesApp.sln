@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotesApp.Api", "NotesApp.Api\NotesApp.Api.csproj", "{2D447684-C45B-4DD5-92EF-FFC98BF0959C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotesApp.Tests", "NotesApp.Tests\NotesApp.Tests.csproj", "{3A5CEE23-2C35-447F-80E9-7F1B397116C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TargetApi.Mock", "TargetApi.Mock\TargetApi.Mock.csproj", "{6910D700-A04F-4EDC-A526-E67ADE01ED68}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RpaIntegration.Api", "RpaIntegration.Api\RpaIntegration.Api.csproj", "{EDCFA2CB-3C25-4F5B-BCCF-16C7C027DB8D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2D447684-C45B-4DD5-92EF-FFC98BF0959C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D447684-C45B-4DD5-92EF-FFC98BF0959C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D447684-C45B-4DD5-92EF-FFC98BF0959C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D447684-C45B-4DD5-92EF-FFC98BF0959C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A5CEE23-2C35-447F-80E9-7F1B397116C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3A5CEE23-2C35-447F-80E9-7F1B397116C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3A5CEE23-2C35-447F-80E9-7F1B397116C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3A5CEE23-2C35-447F-80E9-7F1B397116C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6910D700-A04F-4EDC-A526-E67ADE01ED68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6910D700-A04F-4EDC-A526-E67ADE01ED68}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6910D700-A04F-4EDC-A526-E67ADE01ED68}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6910D700-A04F-4EDC-A526-E67ADE01ED68}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDCFA2CB-3C25-4F5B-BCCF-16C7C027DB8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDCFA2CB-3C25-4F5B-BCCF-16C7C027DB8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDCFA2CB-3C25-4F5B-BCCF-16C7C027DB8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDCFA2CB-3C25-4F5B-BCCF-16C7C027DB8D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

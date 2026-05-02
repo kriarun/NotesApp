@@ -1,0 +1,6 @@
+@RpaIntegration.Api_HostAddress = http://localhost:5267
+
+GET {{RpaIntegration.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

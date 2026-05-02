@@ -1,0 +1,6 @@
+@TargetApi.Mock_HostAddress = http://localhost:5093
+
+GET {{TargetApi.Mock_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
