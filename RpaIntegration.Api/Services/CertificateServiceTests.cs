@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Options;
 using RpaIntegration.Api.Options;
 using RpaIntegration.Api.Services;
+using Xunit;
 
 namespace NotesApp.Tests;
 

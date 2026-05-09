@@ -1,130 +1,186 @@
+﻿using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using IdentityModel.AspNetCore.AccessTokenManagement;
 using IdentityModel.Client;
 using Microsoft.Extensions.Options;
 using Moq;
-using YourOrg.Options;
-using YourOrg.Services;
+using RpaIntegration.Api.Options;
+using RpaIntegration.Api.Services;
 
-namespace YourOrg.Tests;
+namespace NotesApp.Tests;
 
 public class DynamicAssertionTokenServiceTests
 {
-    private readonly Mock<ClientAssertionService> _mockAssertionService;
+    private readonly Mock<ICertificateService> _mockCertService;
+    private readonly ClientAssertionService _assertionService;
     private readonly DynamicAssertionTokenService _sut;
 
     public DynamicAssertionTokenServiceTests()
     {
-        _mockAssertionService = new Mock<ClientAssertionService>();
+        _mockCertService = new Mock<ICertificateService>();
 
-        var options = Options.Create(new ShiftLightOptions
+        var options = Options.Create(new KeycloakOptions
         {
-            TokenUrl = "https://keycloak.example.com/token",
-            ClientId = "test-client"
+            TokenUrl           = "https://keycloak.example.com/token",
+            Audience           = "https://api.example.com",
+            ClientId           = "test-client",
+            CertificateBase64  = "placeholder",
+            CertificatePassword = "placeholder",
         });
 
-        _sut = new DynamicAssertionTokenService(
-            _mockAssertionService.Object,
-            options);
+        _assertionService = new ClientAssertionService(_mockCertService.Object, options);
+        _sut = new DynamicAssertionTokenService(_assertionService, options);
+
+        _mockCertService
+            .Setup(s => s.LoadCertificate())
+            .Returns(CreateTestCertificate);   // factory — fresh cert per call
     }
 
-    [Fact]
-    public async Task GetClientCredentialsRequestAsync_CorrectClientName_AddsClientAssertion()
+    private static X509Certificate2 CreateTestCertificate()
     {
-        // Arrange
-        _mockAssertionService
-            .Setup(s => s.GetClientAssertion())
-            .Returns("fake-jwt-token");
+        using var rsa = RSA.Create(2048);
+        var req = new CertificateRequest(
+            "cn=test", rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+        var cert = req.CreateSelfSigned(
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddYears(1));
+        return X509Certificate2.CreateFromPkcs12(cert.Export(X509ContentType.Pfx));
+    }
 
-        // Act
+    // ── GetClientCredentialsRequestAsync — if-branch coverage ────────────────
+
+    [Fact]
+    public async Task GetClientCredentialsRequestAsync_MatchingClientName_SetsClientAssertion()
+    {
         var result = await _sut.GetClientCredentialsRequestAsync(
-            "shiftlight-access-token",
-            new ClientAccessTokenParameters());
+            "rpa-access-token", new ClientAccessTokenParameters());
 
-        // Assert
         Assert.NotNull(result.ClientAssertion);
-        Assert.Equal(
-            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            result.ClientAssertion.Type);
     }
 
     [Fact]
-    public async Task GetClientCredentialsRequestAsync_CorrectClientName_UsesJwtValue()
+    public async Task GetClientCredentialsRequestAsync_WrongClientName_DoesNotSetClientAssertion()
     {
-        // Arrange
-        _mockAssertionService
-            .Setup(s => s.GetClientAssertion())
-            .Returns("fake-jwt-token");
-
-        // Act
         var result = await _sut.GetClientCredentialsRequestAsync(
-            "shiftlight-access-token",
-            new ClientAccessTokenParameters());
+            "some-other-client", new ClientAccessTokenParameters());
 
-        // Assert
-        Assert.Equal("fake-jwt-token", result.ClientAssertion!.Value);
-    }
-
-    [Fact]
-    public async Task GetClientCredentialsRequestAsync_WrongClientName_NoClientAssertion()
-    {
-        // Act
-        var result = await _sut.GetClientCredentialsRequestAsync(
-            "some-other-client", // ← wrong name
-            new ClientAccessTokenParameters());
-
-        // Assert — no assertion added for wrong client
         Assert.Null(result.ClientAssertion);
     }
 
     [Fact]
-    public async Task GetClientCredentialsRequestAsync_CorrectClientName_UsesPostBody()
+    public async Task GetClientCredentialsRequestAsync_ClientNameIsTheOnlyDifference()
     {
-        // Arrange
-        _mockAssertionService
-            .Setup(s => s.GetClientAssertion())
-            .Returns("fake-jwt");
+        // Shows the if-branch clearly — same service, only client name differs
+        var matched = await _sut.GetClientCredentialsRequestAsync(
+            "rpa-access-token", new ClientAccessTokenParameters());
 
-        // Act
+        var unmatched = await _sut.GetClientCredentialsRequestAsync(
+            "some-other-client", new ClientAccessTokenParameters());
+
+        Assert.NotNull(matched.ClientAssertion);    // ← if branch taken
+        Assert.Null(unmatched.ClientAssertion);     // ← if branch skipped
+    }
+
+    // ── GetClientCredentialsRequestAsync — assertion content ─────────────────
+
+    [Fact]
+    public async Task GetClientCredentialsRequestAsync_MatchingClientName_SetsCorrectAssertionType()
+    {
         var result = await _sut.GetClientCredentialsRequestAsync(
-            "shiftlight-access-token",
-            new ClientAccessTokenParameters());
+            "rpa-access-token", new ClientAccessTokenParameters());
 
-        // Assert
         Assert.Equal(
-            ClientCredentialStyle.PostBody,
-            result.ClientCredentialStyle);
+            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            result.ClientAssertion!.Type);
     }
 
     [Fact]
-    public async Task GetClientCredentialsRequestAsync_CorrectClientName_CallsGetClientAssertion()
+    public async Task GetClientCredentialsRequestAsync_MatchingClientName_SetsValidJwtAsValue()
     {
-        // Arrange
-        _mockAssertionService
-            .Setup(s => s.GetClientAssertion())
-            .Returns("fake-jwt");
+        var result = await _sut.GetClientCredentialsRequestAsync(
+            "rpa-access-token", new ClientAccessTokenParameters());
 
-        // Act
-        await _sut.GetClientCredentialsRequestAsync(
-            "shiftlight-access-token",
-            new ClientAccessTokenParameters());
+        // JWT always has exactly 3 parts: header.payload.signature
+        Assert.Equal(3, result.ClientAssertion!.Value.Split('.').Length);
+    }
 
-        // Assert — GetClientAssertion called exactly once
-        _mockAssertionService.Verify(
-            s => s.GetClientAssertion(),
-            Times.Once);
+    // ── GetClientCredentialsRequestAsync — request fields ────────────────────
+
+    [Fact]
+    public async Task GetClientCredentialsRequestAsync_SetsTokenUrlAsAddress()
+    {
+        var result = await _sut.GetClientCredentialsRequestAsync(
+            "rpa-access-token", new ClientAccessTokenParameters());
+
+        Assert.Equal("https://keycloak.example.com/token", result.Address);
     }
 
     [Fact]
-    public async Task GetClientCredentialsRequestAsync_WrongClientName_NeverCallsGetClientAssertion()
+    public async Task GetClientCredentialsRequestAsync_SetsClientId()
     {
-        // Act
-        await _sut.GetClientCredentialsRequestAsync(
-            "some-other-client",
-            new ClientAccessTokenParameters());
+        var result = await _sut.GetClientCredentialsRequestAsync(
+            "rpa-access-token", new ClientAccessTokenParameters());
 
-        // Assert — GetClientAssertion never called for wrong client
-        _mockAssertionService.Verify(
-            s => s.GetClientAssertion(),
-            Times.Never);
+        Assert.Equal("test-client", result.ClientId);
+    }
+
+    [Fact]
+    public async Task GetClientCredentialsRequestAsync_SetsGrantType()
+    {
+        var result = await _sut.GetClientCredentialsRequestAsync(
+            "rpa-access-token", new ClientAccessTokenParameters());
+
+        Assert.Equal("client_credentials", result.GrantType);
+    }
+
+    [Fact]
+    public async Task GetClientCredentialsRequestAsync_SetsClientCredentialStyleToPostBody()
+    {
+        var result = await _sut.GetClientCredentialsRequestAsync(
+            "rpa-access-token", new ClientAccessTokenParameters());
+
+        Assert.Equal(ClientCredentialStyle.PostBody, result.ClientCredentialStyle);
+    }
+
+    // ── GetRefreshTokenRequestAsync ───────────────────────────────────────────
+
+    [Fact]
+    public async Task GetRefreshTokenRequestAsync_ReturnsNonNull()
+    {
+        var result = await _sut.GetRefreshTokenRequestAsync(
+            new UserAccessTokenParameters());
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task GetRefreshTokenRequestAsync_ReturnsRefreshTokenRequest()
+    {
+        var result = await _sut.GetRefreshTokenRequestAsync(
+            new UserAccessTokenParameters());
+
+        Assert.IsType<RefreshTokenRequest>(result);
+    }
+
+    // ── GetTokenRevocationRequestAsync ───────────────────────────────────────
+
+    [Fact]
+    public async Task GetTokenRevocationRequestAsync_ReturnsNonNull()
+    {
+        var result = await _sut.GetTokenRevocationRequestAsync(
+            new UserAccessTokenParameters());
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task GetTokenRevocationRequestAsync_ReturnsTokenRevocationRequest()
+    {
+        var result = await _sut.GetTokenRevocationRequestAsync(
+            new UserAccessTokenParameters());
+
+        Assert.IsType<TokenRevocationRequest>(result);
     }
 }

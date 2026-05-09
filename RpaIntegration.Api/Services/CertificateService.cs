@@ -16,7 +16,15 @@ public class CertificateService : ICertificateService
     public X509Certificate2 LoadCertificate()
     {
         // Step 1 — decode base64 to bytes
-        var certBytes = Convert.FromBase64String(_options.CertificateBase64);
+        var cleanBase64 = _options.CertificateBase64
+            .Replace("\n", "")
+            .Replace("\r", "")
+            .Replace(" ", "")
+            .Trim();
+        
+        
+
+        var certBytes = Convert.FromBase64String(cleanBase64);
 
         // Step 2 — load certificate from bytes + password
         return new X509Certificate2(

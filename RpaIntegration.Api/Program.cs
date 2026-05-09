@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
 
 // Options
 builder.Services.AddOptions<KeycloakOptions>()
@@ -20,39 +21,44 @@ builder.Services.AddOptions<TargetApiOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-// HTTP Clients
-// HTTP Clients
-builder.Services.AddHttpClient("KeycloakClient");
-builder.Services.AddHttpClient("TargetApiClient", client =>
+// Services
+builder.Services.AddSingleton<ICertificateService, CertificateService>();
+builder.Services.AddScoped<IContractService, ContractService>();
+
+var useMock = builder.Configuration.GetValue<bool>("UseMockTokenService");
+
+if (useMock)
+{
+    // Mock mode — plain HttpClient, no Duende token management
+    builder.Services.AddScoped<ITokenService, MockTokenService>();
+    builder.Services.AddHttpClient("TargetApiClient", client =>
     {
         client.BaseAddress = new Uri(
             builder.Configuration["TargetApiOptions:BaseUrl"]!);
     })
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {
-        // Dev only — ignore SSL errors between local projects
         ServerCertificateCustomValidationCallback =
             HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
     });
+}
+else
+{
+    // Real mode — Duende manages tokens automatically
+    builder.Services.AddScoped<ITokenService, TokenService>();
+    builder.Services.AddSingleton<IClientAssertionService, ClientAssertionService>();
 
-// Services
+    builder.Services.AddClientCredentialsTokenManagement()
+        .AddClient(ClientCredentialsClientName.Parse("keycloak"), client =>
+        {
+            client.TokenEndpoint = new Uri(
+                builder.Configuration["KeycloakOptions:TokenUrl"]!);
+            client.ClientId = ClientId.Parse(
+                builder.Configuration["KeycloakOptions:ClientId"]!);
+            client.ClientCredentialStyle = ClientCredentialStyle.PostBody;
+        });
 
-builder.Services.AddSingleton<ICertificateService, CertificateService>();
-
-// Access Token Management
-builder.Services.AddClientCredentialsTokenManagement()
-    .AddClient(ClientCredentialsClientName.Parse("keycloak"), client =>
-    {
-        client.TokenEndpoint = new Uri(
-            builder.Configuration["KeycloakOptions:TokenUrl"]!);
-        client.ClientId = ClientId.Parse(
-            builder.Configuration["KeycloakOptions:ClientId"]!);
-        client.ClientCredentialStyle = ClientCredentialStyle.PostBody;
-    });
-    
-// HTTP Clients
-builder.Services.AddHttpClient("KeycloakClient");
-builder.Services.AddClientCredentialsHttpClient(
+    builder.Services.AddClientCredentialsHttpClient(
         "TargetApiClient",
         ClientCredentialsClientName.Parse("keycloak"),
         client =>
@@ -65,14 +71,7 @@ builder.Services.AddClientCredentialsHttpClient(
         ServerCertificateCustomValidationCallback =
             HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
     });
-
-//builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<ITokenService, MockTokenService>(); // ← mock for dev
-
-builder.Services.AddScoped<IContractService, ContractService>();
-
-// Error handling
-builder.Services.AddProblemDetails();
+}
 
 var app = builder.Build();
 
@@ -92,7 +91,6 @@ app.UseHttpsRedirection();
 app.MapControllers();
 
 app.Run();
-
 
 namespace RpaIntegration.Api
 {

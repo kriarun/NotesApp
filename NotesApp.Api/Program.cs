@@ -35,6 +35,12 @@ if (app.Environment.IsDevelopment())
 app.UseStatusCodePages(); // ← handles 404, 405 etc automatically
 
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"IN: {context.Request.Path}");
+    await next();                          // ← call next
+    Console.WriteLine($"OUT: {context.Response.StatusCode}");
+});
 app.MapControllers(); // ← wire controller routes into pipeline
 
 app.Run();

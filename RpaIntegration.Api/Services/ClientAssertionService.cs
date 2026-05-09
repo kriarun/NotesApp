@@ -1,5 +1,5 @@
-﻿using Duende.AccessTokenManagement;
-using Duende.IdentityModel.Client;
+﻿using System.Globalization;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -7,7 +7,7 @@ using RpaIntegration.Api.Options;
 
 namespace RpaIntegration.Api.Services;
 
-public class ClientAssertionService : IClientAssertionService
+public class ClientAssertionService
 {
     private readonly ICertificateService _certificateService;
     private readonly IOptions<KeycloakOptions> _options;
@@ -20,38 +20,30 @@ public class ClientAssertionService : IClientAssertionService
         _options = options;
     }
 
-    public Task<ClientAssertion?> GetClientAssertionAsync(
-        ClientCredentialsClientName? clientName = null,
-        TokenRequestParameters? parameters = null,
-        CancellationToken cancellationToken = default)  // ← add this
+    public string GetClientAssertion()
     {
         var options = _options.Value;
         var certificate = _certificateService.LoadCertificate();
+        var rsaPrivateKey = certificate.GetRSAPrivateKey()
+            ?? throw new Exception("No RSA private key found in certificate.");
 
-        var securityKey = new X509SecurityKey(certificate);
         var signingCredentials = new SigningCredentials(
-            securityKey, SecurityAlgorithms.RsaSha256);
+            new RsaSecurityKey(rsaPrivateKey),
+            SecurityAlgorithms.RsaSha256);
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Issuer = options.ClientId,
-            Audience = options.TokenUrl,
+            Audience = options.Audience,          // ← Audience, not TokenUrl
             Expires = DateTime.UtcNow.AddMinutes(5),
             SigningCredentials = signingCredentials,
             Claims = new Dictionary<string, object>
             {
                 { "sub", options.ClientId },
-                { "jti", Guid.NewGuid().ToString() }
-            }
+                { "jti", Guid.NewGuid().ToString().ToUpper(CultureInfo.InvariantCulture) },
+            },
         };
 
-        var tokenHandler = new JsonWebTokenHandler();
-        var assertion = new ClientAssertion
-        {
-            Type = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            Value = tokenHandler.CreateToken(tokenDescriptor)
-        };
-
-        return Task.FromResult<ClientAssertion?>(assertion);
+        return new JsonWebTokenHandler().CreateToken(tokenDescriptor);
     }
 }
