@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using RpaIntegration.Api.Options;
 using RpaIntegration.Api.Services;
+using Xunit;
 
 namespace NotesApp.Tests;
 
@@ -46,7 +47,8 @@ public class DynamicAssertionTokenServiceTests
         var cert = req.CreateSelfSigned(
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow.AddYears(1));
-        return X509Certificate2.CreateFromPkcs12(cert.Export(X509ContentType.Pfx));
+        // .NET 8 and below — use the constructor overload instead
+        return new X509Certificate2(cert.Export(X509ContentType.Pfx));
     }
 
     // ── GetClientCredentialsRequestAsync — if-branch coverage ────────────────

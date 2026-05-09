@@ -1,5 +1,7 @@
-using Duende.AccessTokenManagement;
-using Duende.IdentityModel.Client;
+
+
+
+using IdentityModel.Client;
 using RpaIntegration.Api.Options;
 using RpaIntegration.Api.Services;
 
@@ -39,38 +41,16 @@ if (useMock)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {
         ServerCertificateCustomValidationCallback =
+ 
             HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
     });
 }
 else
 {
     // Real mode — Duende manages tokens automatically
-    builder.Services.AddScoped<ITokenService, TokenService>();
-    builder.Services.AddSingleton<IClientAssertionService, ClientAssertionService>();
+    builder.Services.AddSingleton<ClientAssertionService>();
 
-    builder.Services.AddClientCredentialsTokenManagement()
-        .AddClient(ClientCredentialsClientName.Parse("keycloak"), client =>
-        {
-            client.TokenEndpoint = new Uri(
-                builder.Configuration["KeycloakOptions:TokenUrl"]!);
-            client.ClientId = ClientId.Parse(
-                builder.Configuration["KeycloakOptions:ClientId"]!);
-            client.ClientCredentialStyle = ClientCredentialStyle.PostBody;
-        });
-
-    builder.Services.AddClientCredentialsHttpClient(
-        "TargetApiClient",
-        ClientCredentialsClientName.Parse("keycloak"),
-        client =>
-        {
-            client.BaseAddress = new Uri(
-                builder.Configuration["TargetApiOptions:BaseUrl"]!);
-        })
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-    {
-        ServerCertificateCustomValidationCallback =
-            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-    });
+ 
 }
 
 var app = builder.Build();

@@ -1,4 +1,4 @@
-﻿using Duende.IdentityModel.Client;
+﻿
 using IdentityModel.AspNetCore.AccessTokenManagement;
 using IdentityModel.Client;
 using Microsoft.Extensions.Options;
